@@ -13,89 +13,92 @@ import (
 	"time"
 )
 
-// UCD_URL é a URL canônica do file UnicodeData.txt mais atual
-const UCD_URL = "http://www.unicode.org/Public/UNIDATA/UnicodeData.txt"
 
-// ParseLine devolve a rune, o name e uma slice de words que
-// ocorrem no campo name de uma line do UnicodeData.txt
-func ParseLine(line string) (rune, string, []string) {
-	fields := strings.Split(line, ";")
-	code, _ := strconv.ParseInt(fields[0], 16, 32)
-	name := fields[1]
-	words := split(fields[1])
-	if fields[10] != "" { // ➊
-		name += fmt.Sprintf(" (%s)", fields[10])
-		for _, word := range split(fields[10]) { // ➋
-			if !contains(words, word) { // ➌
-				words = append(words, word) // ➍
+// Dados ficam em http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
+// mas unicode.org não é confiável, então esta URL alternativa pode ser usada:
+// http://turing.com.br/etc/UnicodeData.txt
+const URLUCD = "http://turing.com.br/etc/UnicodeData.txt"
+
+// AnalisarLinha devolve a runa, o nome e uma fatia de palavras que
+// ocorrem no campo nome de uma linha do UnicodeData.txt
+func AnalisarLinha(linha string) (rune, string, []string) {
+	campos := strings.Split(linha, ";")
+	código, _ := strconv.ParseInt(campos[0], 16, 32)
+	nome := campos[1]
+	palavras := separar(campos[1])
+	if campos[10] != "" { // ➊
+		nome += fmt.Sprintf(" (%s)", campos[10])
+		for _, palavra := range separar(campos[10]) { // ➋
+			if !contém(palavras, palavra) { // ➌
+				palavras = append(palavras, palavra) // ➍
 			}
 		}
 	}
-	return rune(code), name, words
+	return rune(código), nome, palavras
 }
 
-func contains(slice []string, needle string) bool {
-	for _, item := range slice {
-		if item == needle {
+func contém(fatia []string, procurado string) bool {
+	for _, item := range fatia {
+		if item == procurado {
 			return true // ➋
 		}
 	}
 	return false // ➌
 }
 
-func containsAll(slice []string, needles []string) bool {
-	for _, needle := range needles {
-		if !contains(slice, needle) {
+func contémTodos(fatia []string, procurados []string) bool {
+	for _, procurado := range procurados {
+		if !contém(fatia, procurado) {
 			return false
 		}
 	}
 	return true
 }
 
-func split(s string) []string { // ➊
-	separator := func(c rune) bool { // ➋
+func separar(s string) []string { // ➊
+	separador := func(c rune) bool { // ➋
 		return c == ' ' || c == '-'
 	}
-	return strings.FieldsFunc(s, separator) // ➌
+	return strings.FieldsFunc(s, separador) // ➌
 }
 
-// List exibe na saída padrão o code, a rune e o name dos caracteres Unicode
-// cujo name contem as words da query.
-func List(text io.Reader, query string) {
-	terms := split(query)
-	scanner := bufio.NewScanner(text)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.TrimSpace(line) == "" {
+// Listar exibe na saída padrão o código, a runa e o nome dos caracteres Unicode
+// cujo nome contem as palavras da consulta.
+func Listar(texto io.Reader, consulta string) {
+	termos := separar(consulta)
+	varredor := bufio.NewScanner(texto)
+	for varredor.Scan() {
+		linha := varredor.Text()
+		if strings.TrimSpace(linha) == "" {
 			continue
 		}
-		rune, name, wordsName := ParseLine(line) // ➊
-		if containsAll(wordsName, terms) {           // ➋
-			fmt.Printf("U+%04X\t%[1]c\t%s\n", rune, name)
+		runa, nome, palavrasNome := AnalisarLinha(linha) // ➊
+		if contémTodos(palavrasNome, termos) {           // ➋
+			fmt.Printf("U+%04X\t%[1]c\t%s\n", runa, nome)
 		}
 	}
 }
 
-func exitIf(e error) {
+func check(e error) {
 	if e != nil {
-		log.Fatal(e)
+		panic(e)
 	}
 }
 
-func getUCDPath() string {
-	ucdPath := os.Getenv("UCD_PATH")
-	if ucdPath == "" {
-		user, err := user.Current()
-		exitIf(err)
-		ucdPath = user.HomeDir + "/UnicodeData.txt"
+func obterCaminhoUCD() string {
+	caminhoUCD := os.Getenv("UCD_PATH")
+	if caminhoUCD == "" {
+		usuário, err := user.Current()
+		check(err)
+		caminhoUCD = usuário.HomeDir + "/UnicodeData.txt"
 	}
-	return ucdPath
+	return caminhoUCD
 }
 
-func progress(done <-chan bool) {
+func progresso(feito <-chan bool) {
 	for {
 		select {
-		case <-done:
+		case <-feito:
 			fmt.Println()
 			return
 		default:
@@ -105,36 +108,36 @@ func progress(done <-chan bool) {
 	}
 }
 
-func fetchUCD(url, path string, done chan<- bool) {
-	response, err := http.Get(url)
-	exitIf(err)
-	defer response.Body.Close()
-	file, err := os.Create(path)
-	exitIf(err)
-	defer file.Close()
-	_, err = io.Copy(file, response.Body)
-	exitIf(err)
-	done <- true
+func baixarUCD(url, caminho string, feito chan<- bool) {
+	resposta, err := http.Get(url)
+	check(err)
+	defer resposta.Body.Close()
+	arquivo, err := os.Create(caminho)
+	check(err)
+	defer arquivo.Close()
+	_, err = io.Copy(arquivo, resposta.Body)
+	check(err)
+	feito <- true
 }
 
-func openUCD(path string) (*os.File, error) {
-	ucd, err := os.Open(path)
+func abrirUCD(caminho string) (*os.File, error) {
+	ucd, err := os.Open(caminho)
 	if os.IsNotExist(err) {
-		fmt.Printf("%s não encontrado\nbaixando %s\n", path, UCD_URL)
-		done := make(chan bool)
-		go fetchUCD(UCD_URL, path, done)
-		progress(done)
-		ucd, err = os.Open(path)
+		fmt.Printf("%s não encontrado\nbaixando %s\n", caminho, URLUCD)
+		feito := make(chan bool)
+		go baixarUCD(URLUCD, caminho, feito)
+		progresso(feito)
+		ucd, err = os.Open(caminho)
 	}
 	return ucd, err
 }
 
 func main() {
-	ucd, err := openUCD(getUCDPath())
+	ucd, err := abrirUCD(obterCaminhoUCD())
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	defer func() { ucd.Close() }()
-	query := strings.Join(os.Args[1:], " ")
-	List(ucd, strings.ToUpper(query))
+	consulta := strings.Join(os.Args[1:], " ")
+	Listar(ucd, strings.ToUpper(consulta))
 }
