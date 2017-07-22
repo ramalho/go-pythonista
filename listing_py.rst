@@ -1,7 +1,7 @@
-========
-runas.py
-========
+=========
+sinais.py
+=========
 
 
-.. literalinclude:: python/runas.py
+.. literalinclude:: python/sinais.py
     :linenos:

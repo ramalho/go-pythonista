@@ -1,9 +1,9 @@
-========
-runas.go
-========
+=========
+sinais.go
+=========
 
 
-.. literalinclude:: runas/runas.go
+.. literalinclude:: sinais/sinais.go
     :language: go
     :tab-width: 2
     :linenos:
