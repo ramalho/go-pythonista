@@ -76,9 +76,9 @@ func List(text io.Reader, query string) {
 	}
 }
 
-func check(e error) {
+func exitIf(e error) {
 	if e != nil {
-		panic(e)
+		log.Fatal(e)
 	}
 }
 
@@ -86,7 +86,7 @@ func getUCDPath() string {
 	ucdPath := os.Getenv("UCD_PATH")
 	if ucdPath == "" {
 		user, err := user.Current()
-		check(err)
+		exitIf(err)
 		ucdPath = user.HomeDir + "/UnicodeData.txt"
 	}
 	return ucdPath
@@ -107,13 +107,13 @@ func progress(done <-chan bool) {
 
 func fetchUCD(url, path string, done chan<- bool) {
 	response, err := http.Get(url)
-	check(err)
+	exitIf(err)
 	defer response.Body.Close()
 	file, err := os.Create(path)
-	check(err)
+	exitIf(err)
 	defer file.Close()
 	_, err = io.Copy(file, response.Body)
-	check(err)
+	exitIf(err)
 	done <- true
 }
 
