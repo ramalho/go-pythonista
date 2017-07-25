@@ -46,15 +46,6 @@ func contém(fatia []string, procurado string) bool {
 	return false // ➌
 }
 
-func contémTodos(fatia []string, procurados []string) bool {
-	for _, procurado := range procurados {
-		if !contém(fatia, procurado) {
-			return false
-		}
-	}
-	return true
-}
-
 func separar(s string) []string { // ➊
 	separador := func(c rune) bool { // ➋
 		return c == ' ' || c == '-'
@@ -79,9 +70,18 @@ func Listar(texto io.Reader, consulta string) {
 	}
 }
 
-func check(e error) {
-	if e != nil {
-		panic(e)
+func contémTodos(fatia []string, procurados []string) bool {
+	for _, procurado := range procurados {
+		if !contém(fatia, procurado) {
+			return false
+		}
+	}
+	return true
+}
+
+func fecharSe(err error) {
+	if err != nil {
+		log.Fatal(err.Error())
 	}
 }
 
@@ -89,7 +89,7 @@ func obterCaminhoUCD() string {
 	caminhoUCD := os.Getenv("UCD_PATH")
 	if caminhoUCD == "" {
 		usuário, err := user.Current()
-		check(err)
+		fecharSe(err)
 		caminhoUCD = usuário.HomeDir + "/UnicodeData.txt"
 	}
 	return caminhoUCD
@@ -110,13 +110,13 @@ func progresso(feito <-chan bool) {
 
 func baixarUCD(url, caminho string, feito chan<- bool) {
 	resposta, err := http.Get(url)
-	check(err)
+	fecharSe(err)
 	defer resposta.Body.Close()
 	arquivo, err := os.Create(caminho)
-	check(err)
+	fecharSe(err)
 	defer arquivo.Close()
 	_, err = io.Copy(arquivo, resposta.Body)
-	check(err)
+	fecharSe(err)
 	feito <- true
 }
 

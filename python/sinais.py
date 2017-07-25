@@ -4,8 +4,10 @@ import os, sys
 import urllib.request
 import threading
 
-# URL_UCD é a URL canônica do arquivo UnicodeData.txt mais atual
-URL_UCD = 'http://www.unicode.org/Public/UNIDATA/UnicodeData.txt'
+# Dados ficam em http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
+# mas unicode.org não é confiável, então esta URL alternativa pode ser usada:
+# http://turing.com.br/etc/UnicodeData.txt
+URL_UCD = "http://turing.com.br/etc/UnicodeData.txt"
 
 
 def analisar_linha(linha):
@@ -37,18 +39,6 @@ def obter_caminho_UCD():
     return caminho_UCD
 
 
-def abrir_UCD(caminho):
-    try:
-        ucd = open(caminho)
-    except FileNotFoundError:
-        print('%s não encontrado\nbaixando %s' % (caminho, URL_UCD))
-        feito = threading.Event()
-        threading.Thread(target=baixar_UCD, args=(URL_UCD, caminho, feito)).start()
-        progresso(feito)
-        ucd = open(caminho)
-    return ucd
-
-
 def progresso(feito):
     while not feito.wait(.150):
         print('.', end='', flush=True)
@@ -61,6 +51,18 @@ def baixar_UCD(url, caminho, feito):
     with open(caminho, 'wb') as arquivo:
         arquivo.write(octetos)
     feito.set()
+
+
+def abrir_UCD(caminho):
+    try:
+        ucd = open(caminho)
+    except FileNotFoundError:
+        print('%s não encontrado\nbaixando %s' % (caminho, URL_UCD))
+        feito = threading.Event()
+        threading.Thread(target=baixar_UCD, args=(URL_UCD, caminho, feito)).start()
+        progresso(feito)
+        ucd = open(caminho)
+    return ucd
 
 
 def main():
